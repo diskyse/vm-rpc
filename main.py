@@ -1,14 +1,13 @@
 from pypresence.presence import Presence
 from pypresence import InvalidPipe
-from datetime import datetime, UTC
-from time import sleep
+from time import sleep 
 from pathlib import Path
-from sys import platform
-import json
-
 from vmware import vmware
 from hyperv import hyperv
 from virtualbox import virtualbox
+from datetime import datetime, UTC
+from sys import platform
+import json
 
 def clear() -> None:
     global epoch_time, STATUS, LASTSTATUS, running
@@ -19,24 +18,28 @@ def clear() -> None:
     if running:
         print("Stopped running VMs.")
         running = False
+    return running
 
 running = False
 
 # Load JSON settings file
-settings_path = Path("settings.json")
-if settings_path.is_file() and settings_path.stat().st_size != 0:
-    with open(settings_path, encoding="utf-8") as f:
+if Path("settings.json").is_file() and Path("settings.json").stat().st_size != 0:
+    # Settings file found
+    with open("settings.json", encoding="utf-8") as f:
         settings = json.load(f)
 else:
-    settings_path.touch()
+    Path("settings.json").touch()
     settings = {}
 
 # Get client ID
 if settings.get("clientID"):
+    # client ID found in settings.json and it's not blank (NoneType/blank strings == False)
     client_id = settings.get("clientID")
 elif Path("clientID.txt").is_file():
+    # Client ID found in legacy file
     client_id = Path("clientID.txt").read_text(encoding="utf-8")
 else:
+    # Prompt for ID
     client_id = input("Enter client ID: ")
     settings["clientID"] = client_id
 
@@ -114,26 +117,24 @@ elif Path("largeImage.txt").is_file():
     largeimage = Path("largeImage.txt").read_text(encoding="utf-8")
     settings["largeImage"] = largeimage
 else:
+    # None found, ignore
     largeimage = None
-
 # Get small image key
 smallimage = settings.get("smallImage")
 
-# Save settings to file
 with open("settings.json", "w", encoding="utf-8") as f:
     json.dump(settings, f, indent="\t")
 
 if "vmware" in hypervisors:
     # Initialize VMware
-    vmware_instance = vmware(str(vmwarepath))
+    vmware = vmware(str(vmwarepath))
 
 if "hyper-v" in hypervisors:
     # Initialize Hyper-V
-    hyperv_instance = hyperv()
-
+    hyperv = hyperv()
 if "virtualbox" in hypervisors:
     # Initialize VirtualBox
-    virtualbox_instance = virtualbox(str(virtualboxpath))
+    virtualbox = virtualbox(str(virtualboxpath))
 
 # Set up RPC
 RPC = Presence(client_id)
@@ -165,71 +166,71 @@ while True:
     # Run vmrun list, capture output, and split it up
     STATUS = None
     if "vmware" in hypervisors:
-        vmware_instance.updateOutput()
-        if not vmware_instance.isRunning():
+        vmware.updateOutput()
+        if not vmware.isRunning():
             # No VMs running, clear rich presence and set time to update on next change
             clear()
-        elif vmware_instance.runCount() > 1:
+        elif vmware.runCount() > 1:
             running = True
             # Too many VMs to fit in field
             STATUS = "Running VMs"
             # Get VM count so we can show how many are running
-            vmcount = [vmware_instance.runCount(), vmware_instance.runCount()]
+            vmcount = [vmware.runCount(), vmware.runCount()]
             HYPERVISOR = "VMware"
         else:
             running = True
             # Init variable
-            displayName = vmware_instance.getRunningGuestName(0)
-            STATUS = f"Virtualizing {displayName}"
-            vmcount = None
+            displayName = vmware.getRunningGuestName(0)
+            STATUS = f"Virtualizing {displayName}" # Set status
+            vmcount = None # Only 1 VM, so set vmcount to None
             HYPERVISOR = "VMware"
     if "hyper-v" in hypervisors:
-        if not hyperv_instance.isFound():
+        if not hyperv.isFound():
             print("Hyper-V either not supported, enabled, or found on this machine. Disabling Hyper-V for this session.")
             while "hyper-v" in hypervisors:
                 hypervisors.remove("hyper-v")
             continue
-        hyperv_instance.updateRunningVMs()
-        if not hyperv_instance.isRunning():
+        hyperv.updateRunningVMs()
+        if not hyperv.isRunning():
             # No VMs running, clear rich presence and set time to update on next change
             clear()
-        elif hyperv_instance.runCount() > 1:
+        elif hyperv.runCount() > 1:
             running = True
             # Too many VMs to fit in field
             STATUS = "Running VMs"
             # Get VM count so we can show how many are running
-            vmcount = [hyperv_instance.runCount(), hyperv_instance.runCount()]
+            vmcount = [hyperv.runCount(), hyperv.runCount()]
             HYPERVISOR = "Hyper-V"
         else:
             running = True
             # Init variable
-            displayName = hyperv_instance.getRunningGuestName(0)
-            STATUS = f"Virtualizing {displayName}"
-            vmcount = None
+            displayName = hyperv.getRunningGuestName(0)
+            STATUS = f"Virtualizing {displayName}" # Set status
+            vmcount = None # Only 1 VM, so set vmcount to none
             HYPERVISOR = "Hyper-V"
     if "virtualbox" in hypervisors:
-        virtualbox_instance.updateOutput()
-        if not virtualbox_instance.isRunning():
+        virtualbox.updateOutput()
+        if not virtualbox.isRunning():
             # No VMs running, clear rich presence and set time to update on next change
             clear()
-        elif virtualbox_instance.runCount() > 1:
+        elif virtualbox.runCount() > 1:
             running = True
             # Too many VMs to fit in field
             STATUS = "Running VMs"
             # Get VM count so we can show how many are running
-            vmcount = [virtualbox_instance.runCount(), virtualbox_instance.runCount()]
+            vmcount = [virtualbox.runCount(), virtualbox.runCount()]
             HYPERVISOR = "VirtualBox"
         else:
             running = True
             # Init variable
-            displayName = virtualbox_instance.getRunningGuestName(0)
-            STATUS = f"Virtualizing {displayName}"
-            vmcount = None
+            displayName = virtualbox.getRunningGuestName(0)
+            STATUS = f"Virtualizing {displayName}" # Set status
+            vmcount = None # Only 1 VM, so set vmcount to none
             HYPERVISOR = "VirtualBox"
-    if STATUS != LASTSTATUS and STATUS is not None:
-        print(f"Rich presence updated locally; new rich presence is: {STATUS} (using {HYPERVISOR})")
-        if "virtualbox" in hypervisors and virtualbox_instance.isRunning() and virtualbox_instance.runCount() == 1:
-            epoch_time = virtualbox_instance.getVMuptime(0)
+    if STATUS != LASTSTATUS and STATUS is not None: # To prevent spamming Discord, only update when something changes
+        print(f"Rich presence updated locally; new rich presence is: {STATUS} (using {HYPERVISOR})") # Report of status change, before ratelimit
+        if "virtualbox" in hypervisors and virtualbox.isRunning() and virtualbox.runCount() == 1: # Check if VirtualBox is in use
+            epoch_time = virtualbox.getVMuptime(0)
         elif epoch_time == 0: # Only change the time if we stopped running VMs before
             # Get epoch time
             now = datetime.now(UTC)
@@ -238,7 +239,7 @@ while True:
             largetext = None
         else:
             largetext = "Check out vm-rpc by DhinakG on GitHub!"
-        # Update Rich Presence
+        # The big RPC update
         RPC.update(
             state=STATUS,
             details=f"Running {HYPERVISOR}",
