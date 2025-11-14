@@ -10,7 +10,7 @@ from vmware import vmware
 from hyperv import hyperv
 from virtualbox import virtualbox
 
-def clear() -> bool:
+def clear() -> None:
     global epoch_time, STATUS, LASTSTATUS, running
     epoch_time = 0
     RPC.clear()
@@ -19,7 +19,6 @@ def clear() -> bool:
     if running:
         print("Stopped running VMs.")
         running = False
-    return running
 
 running = False
 
@@ -115,14 +114,10 @@ elif Path("largeImage.txt").is_file():
     largeimage = Path("largeImage.txt").read_text(encoding="utf-8")
     settings["largeImage"] = largeimage
 else:
-    # None found, ignore
     largeimage = None
+
 # Get small image key
-if settings.get("smallImage"):
-    smallimage = settings.get("smallImage")
-else:
-    # None found, ignore
-    smallimage = None
+smallimage = settings.get("smallImage")
 
 # Save settings to file
 with open("settings.json", "w", encoding="utf-8") as f:
@@ -156,8 +151,6 @@ except InvalidPipe:
         sleep(5)
 else:
     print("Connected to RPC.")
-# RPC.connect()
-# print("Connected to RPC.")
 # Create last sent status so we don't spam Discord
 LASTSTATUS = None
 STATUS = None
