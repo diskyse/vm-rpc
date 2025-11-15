@@ -94,9 +94,9 @@ if "virtualbox" in hypervisors:
         if "virtualbox" in settings and settings["virtualbox"].get("path"):
             # VirtualBox path found in settings.json and it's not blank (NoneType/blank strings == False)
             virtualboxpath = settings["virtualbox"].get("path")
-        elif Path("C:/Program Files (x86)/Oracle/VirtualBox/VBoxManage.exe").is_file():
-            print("Using C:/Program Files (x86)/Oracle/VirtualBox/ as path.")
-            virtualboxpath = Path("C:/Program Files (x86)/Oracle/VirtualBox/")
+        elif Path("C:/Program Files/Oracle/VirtualBox/VBoxManage.exe").is_file():
+            print("Using C:/Program Files/Oracle/VirtualBox/ as path.")
+            virtualboxpath = Path("C:/Program Files/Oracle/VirtualBox/")
             settings["virtualbox"]["path"] = virtualboxpath.as_posix()
         elif Path("C:/Program Files/Oracle/VirtualBox/VBoxManage.exe").is_file():
             print("Using C:/Program Files/Oracle/VirtualBox/ as path.")
@@ -165,68 +165,44 @@ print("Please note that Discord has a 15 second ratelimit in sending Rich Presen
 while True:
     # Run vmrun list, capture output, and split it up
     STATUS = None
-    if "vmware" in hypervisors:
-        vmware.updateOutput()
-        if not vmware.isRunning():
-            # No VMs running, clear rich presence and set time to update on next change
-            clear()
-        elif vmware.runCount() > 1:
-            running = True
-            # Too many VMs to fit in field
-            STATUS = "Running VMs"
-            # Get VM count so we can show how many are running
-            vmcount = [vmware.runCount(), vmware.runCount()]
-            HYPERVISOR = "VMware"
+    vmcount = None
+
+    for hv_name in hypervisors:
+        if hv_name == "vmware":
+            hv = vmware
+            hv.updateOutput()
+        elif hv_name == "hyper-v":
+            hv = hyperv
+            if not hv.isFound():
+                print("Hyper-V either not supported, enabled, or found on this machine. Disabling Hyper-V for this session.")
+                while "hyper-v" in hypervisors:
+                    hypervisors.remove("hyper-v")
+                continue
+            hv.updateRunningVMs()
+        elif hv_name == "virtualbox":
+            hv = virtualbox
+            hv.updateOutput()
         else:
-            running = True
-            # Init variable
-            displayName = vmware.getRunningGuestName(0)
-            STATUS = f"Virtualizing {displayName}" # Set status
-            vmcount = None # Only 1 VM, so set vmcount to None
-            HYPERVISOR = "VMware"
-    if "hyper-v" in hypervisors:
-        if not hyperv.isFound():
-            print("Hyper-V either not supported, enabled, or found on this machine. Disabling Hyper-V for this session.")
-            while "hyper-v" in hypervisors:
-                hypervisors.remove("hyper-v")
             continue
-        hyperv.updateRunningVMs()
-        if not hyperv.isRunning():
-            # No VMs running, clear rich presence and set time to update on next change
-            clear()
-        elif hyperv.runCount() > 1:
+        
+        HYPERVISOR = "VMware" if hv_name == "vmware" else "VirtualBox" if hv_name == "virtualbox" else "Hyper-V"
+        if hv.runCount() <= 0:
+            continue
+        if hv.runCount() > 1:
             running = True
             # Too many VMs to fit in field
             STATUS = "Running VMs"
             # Get VM count so we can show how many are running
-            vmcount = [hyperv.runCount(), hyperv.runCount()]
-            HYPERVISOR = "Hyper-V"
+            vmcount = [hv.runCount(), hv.runCount()]
         else:
             running = True
             # Init variable
-            displayName = hyperv.getRunningGuestName(0)
-            STATUS = f"Virtualizing {displayName}" # Set status
+            displayName = hv.getRunningGuestName(0)
+            STATUS = "Virtualizing " + displayName # Set status
             vmcount = None # Only 1 VM, so set vmcount to none
-            HYPERVISOR = "Hyper-V"
-    if "virtualbox" in hypervisors:
-        virtualbox.updateOutput()
-        if not virtualbox.isRunning():
-            # No VMs running, clear rich presence and set time to update on next change
-            clear()
-        elif virtualbox.runCount() > 1:
-            running = True
-            # Too many VMs to fit in field
-            STATUS = "Running VMs"
-            # Get VM count so we can show how many are running
-            vmcount = [virtualbox.runCount(), virtualbox.runCount()]
-            HYPERVISOR = "VirtualBox"
-        else:
-            running = True
-            # Init variable
-            displayName = virtualbox.getRunningGuestName(0)
-            STATUS = f"Virtualizing {displayName}" # Set status
-            vmcount = None # Only 1 VM, so set vmcount to none
-            HYPERVISOR = "VirtualBox"
+        break  # Stop checking since a HV has VMs running
+    if STATUS is None:
+        clear()
     if STATUS != LASTSTATUS and STATUS is not None: # To prevent spamming Discord, only update when something changes
         print(f"Rich presence updated locally; new rich presence is: {STATUS} (using {HYPERVISOR})") # Report of status change, before ratelimit
         if "virtualbox" in hypervisors and virtualbox.isRunning() and virtualbox.runCount() == 1: # Check if VirtualBox is in use
